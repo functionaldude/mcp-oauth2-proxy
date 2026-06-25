@@ -1,7 +1,35 @@
 # mcp-oauth2-proxy
 
-Spring Boot/Kotlin proxy that terminates OAuth2 for an HTTP MCP server and forwards authenticated `/mcp` traffic to an
-upstream MCP endpoint.
+Spring Boot/Kotlin proxy that adds OAuth2 resource-server protection in front of an HTTP MCP server.
+
+Run it as a sidecar or edge proxy for an existing MCP server: clients connect to this proxy's `/mcp` endpoint, the proxy
+validates bearer tokens from your OIDC provider, and authenticated traffic is forwarded to the upstream MCP endpoint.
+
+## Installation
+
+The proxy is usually deployed beside the MCP server it protects. In Docker Compose, set `MCP_UPSTREAM_URL` to the
+upstream service name on the Compose network, not to `localhost`.
+
+Minimal example:
+
+```yaml
+services:
+  mcp-oauth2-proxy:
+    image: ghcr.io/functionaldude/mcp-oauth2-proxy:latest
+    ports:
+      - "8080:8080"
+    environment:
+      MCP_UPSTREAM_URL: http://mcp-server:8080/mcp
+      APP_PUBLIC_URL: http://localhost:8080
+      OIDC_ISSUER_URI: https://idp.example.com/application/o/mcp/
+      OIDC_SCOPES: openid,profile,email,offline_access
+
+  mcp-server:
+    image: your-mcp-server-image
+```
+
+After startup, configure your MCP client to use the proxy URL, for example `http://localhost:8080/mcp`. The upstream MCP
+server remains private to the Compose network; only the OAuth2-protected proxy is exposed.
 
 ## Runtime configuration
 
@@ -47,6 +75,10 @@ The proxy owns MCP protected-resource discovery. Bearer challenges point clients
 server. Behind a reverse proxy, forward `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Forwarded-Port` so discovery
 uses the public origin.
 
+For OAuth debugging, use the [MCPJam OAuth Debugger](https://docs.mcpjam.com/inspector/guided-oauth). It walks through
+the MCP OAuth handshake step by step and shows the HTTP requests and responses involved in discovery, registration, and
+token exchange.
+
 Confidential client support therefore depends on the identity provider accepting the client secret at its token endpoint,
 usually via `client_secret_basic` or `client_secret_post`, and advertising that in its authorization server metadata.
 The proxy will accept the resulting JWT as long as issuer, signature, expiry, and audience validation pass.
@@ -63,60 +95,65 @@ Run tests:
 ./gradlew test
 ```
 
-## Container image
+## Complete Docker Compose example
 
-Build an OCI image locally with Spring Boot Buildpacks:
-
-```bash
-./gradlew bootBuildImage --imageName ghcr.io/<owner>/<repo>:local
-```
-
-Run it with the required upstream and OAuth settings:
-
-```bash
-docker run --rm -p 8080:8080 \
-  -e MCP_UPSTREAM_URL=http://internal-server:8081/mcp \
-  -e APP_PUBLIC_URL=https://mcp-proxy.example.com \
-  -e OIDC_ISSUER_URI=https://idp.example.com/application/o/mcp/ \
-  -e OIDC_AUDIENCE=https://mcp-proxy.example.com/mcp \
-  ghcr.io/<owner>/<repo>:local
-```
-
-In Docker Compose, do not use `localhost` for `MCP_UPSTREAM_URL` unless the upstream MCP server runs in the same
-container. Use the Compose service name instead:
+This example protects a [DBHub](https://github.com/bytebase/dbhub) MCP server backed by PostgreSQL:
 
 ```yaml
 services:
-  mcp-oauth2-proxy:
-    image: ghcr.io/<owner>/<repo>:latest
-    environment:
-      MCP_UPSTREAM_URL: http://dbhub:8080/mcp
-      APP_PUBLIC_URL: https://mcp-proxy.example.com
-      OIDC_ISSUER_URI: https://idp.example.com/application/o/mcp/
+  database:
+    image: pgvector/pgvector:pg17
     ports:
-      - "8080:8080"
+      - "4432:5432"
+    networks:
+      - default
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - postgres_store:/var/lib/postgresql/data
 
   dbhub:
-    image: your-dbhub-image
-```
+    image: bytebase/dbhub:latest
+    ports:
+      - "5080:5080"
+    networks:
+      - default
+    environment:
+      DBHUB_LOG_LEVEL: error
+    command:
+      - --transport
+      - http
+      - --allowed-hosts
+      - dbhub
+      - --port
+      - "5080"
+      - --dsn
+      - postgres://postgres:changeme@database:5432/postgres
+    depends_on:
+      - database
 
-## GitHub Actions publishing
+  mcp-oauth2-proxy:
+    image: ghcr.io/functionaldude/mcp-oauth2-proxy:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - default
+    environment:
+      OIDC_ISSUER_URI: https://idp.example.com/application/o/dbhub-proxy/
+      APP_PUBLIC_URL: http://localhost:8080
+      MCP_UPSTREAM_URL: http://dbhub:5080/mcp
+      OIDC_SCOPES: openid,profile,email,offline_access
+      MCP_PROXY_EXPOSE_ERROR_DETAILS: "true"
+    depends_on:
+      - dbhub
 
-The workflow in `.github/workflows/docker-image.yml` builds the application with `bootBuildImage` and publishes it to
-GitHub Container Registry.
+networks:
+  default:
+    name: dbhub-stack_default
 
-- Registry: `ghcr.io`
-- Image name: `ghcr.io/${{ github.repository }}`
-- Triggers: pushes to `main` or `master`, `v*` tags, and manual `workflow_dispatch`
-- Tags: `latest` on the default branch, short commit SHA, and the exact Git tag when the commit is tagged
-
-Consumers can pull and run the published image:
-
-```bash
-docker pull ghcr.io/<owner>/<repo>:latest
-docker run --rm -p 8080:8080 \
-  -e MCP_UPSTREAM_URL=http://internal-server:8081/mcp \
-  -e APP_PUBLIC_URL=https://mcp-proxy.example.com \
-  -e OIDC_ISSUER_URI=https://idp.example.com/application/o/mcp/ \
-  ghcr.io/<owner>/<repo>:latest
+volumes:
+  postgres_store:
+    driver: local
 ```

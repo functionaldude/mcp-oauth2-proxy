@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: mcp-oauth2-proxy
+
+server:
+  forward-headers-strategy: framework
+
+app:
+  public-url: ${APP_PUBLIC_URL:http://localhost:8080}
+  auth:
+    issuer-uri: ${OIDC_ISSUER_URI:http://localhost:9000/application/o/mcp/}
+    audience: ${OIDC_AUDIENCE:}
+    scopes: ${OIDC_SCOPES:openid,profile,email}
+
+mcp:
+  proxy:
+    upstream-url: ${MCP_UPSTREAM_URL:}

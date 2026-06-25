@@ -57,3 +57,43 @@ Run tests:
 ```bash
 ./gradlew test
 ```
+
+## Container image
+
+Build an OCI image locally with Spring Boot Buildpacks:
+
+```bash
+./gradlew bootBuildImage --imageName ghcr.io/<owner>/<repo>:local
+```
+
+Run it with the required upstream and OAuth settings:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e MCP_UPSTREAM_URL=http://internal-server:8081/mcp \
+  -e APP_PUBLIC_URL=https://mcp-proxy.example.com \
+  -e OIDC_ISSUER_URI=https://idp.example.com/application/o/mcp/ \
+  -e OIDC_AUDIENCE=https://mcp-proxy.example.com/mcp \
+  ghcr.io/<owner>/<repo>:local
+```
+
+## GitHub Actions publishing
+
+The workflow in `.github/workflows/docker-image.yml` builds the application with `bootBuildImage` and publishes it to
+GitHub Container Registry.
+
+- Registry: `ghcr.io`
+- Image name: `ghcr.io/${{ github.repository }}`
+- Triggers: pushes to `main` or `master`, `v*` tags, and manual `workflow_dispatch`
+- Tags: `latest` on the default branch, short commit SHA, and the exact Git tag when the commit is tagged
+
+Consumers can pull and run the published image:
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+docker run --rm -p 8080:8080 \
+  -e MCP_UPSTREAM_URL=http://internal-server:8081/mcp \
+  -e APP_PUBLIC_URL=https://mcp-proxy.example.com \
+  -e OIDC_ISSUER_URI=https://idp.example.com/application/o/mcp/ \
+  ghcr.io/<owner>/<repo>:latest
+```

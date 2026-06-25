@@ -5,16 +5,21 @@ upstream MCP endpoint.
 
 ## Runtime configuration
 
-| Variable | Default                                    | Purpose |
-| --- |--------------------------------------------| --- |
-| `MCP_UPSTREAM_URL` | Required                                   | Exact upstream MCP endpoint, for example `http://internal-server:8081/mcp`. |
-| `APP_PUBLIC_URL` | `http://localhost:8080`                    | Externally reachable proxy base URL used as fallback for audience defaults. May be either the site root or the `/mcp` endpoint. |
-| `OIDC_ISSUER_URI` | `http://localhost:9000/application/o/mcp/` | Issuer that signs ChatGPT access tokens. The JWKS URL is derived as `<issuer>/jwks/`. |
-| `OIDC_AUDIENCE` | `<APP_PUBLIC_URL>/mcp`                     | Required JWT audience. Override when the provider emits another audience. |
-| `OIDC_SCOPES` | `openid,profile,email,offline_access`                    | Comma-separated scopes advertised in protected-resource metadata and bearer challenges. |
+| Variable                         | Default                                    | Purpose                                                                                                                         |
+|----------------------------------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `MCP_UPSTREAM_URL`               | Required                                   | Exact upstream MCP endpoint, for example `http://internal-server:8081/mcp`.                                                     |
+| `APP_PUBLIC_URL`                 | `http://localhost:8080`                    | Externally reachable proxy base URL used as fallback for audience defaults. May be either the site root or the `/mcp` endpoint. |
+| `OIDC_ISSUER_URI`                | `http://localhost:9000/application/o/mcp/` | Issuer that signs ChatGPT access tokens. The JWKS URL is derived as `<issuer>/jwks/`.                                           |
+| `OIDC_AUDIENCE`                  | `<APP_PUBLIC_URL>/mcp`                     | Required JWT audience. Override when the provider emits another audience.                                                       |
+| `OIDC_SCOPES`                    | `openid,profile,email,offline_access`      | Comma-separated scopes advertised in protected-resource metadata and bearer challenges.                                         |
+| `MCP_PROXY_EXPOSE_ERROR_DETAILS` | `false`                                    | Includes exception details in proxy-generated 5xx JSON responses. Use only for local debugging.                                 |
 
 The proxy strips inbound `Authorization` and cookies before forwarding requests upstream. It does not parse or rewrite
 MCP JSON-RPC/SSE bodies.
+
+Proxy-generated failures include an `X-Request-Id` response header and a small JSON body. Upstream responses, including
+upstream `403` responses, are passed through unchanged except for safe proxy headers such as `X-Request-Id` and
+`X-Mcp-Proxy-Upstream-Status`.
 
 ## OAuth client setup
 
@@ -75,6 +80,24 @@ docker run --rm -p 8080:8080 \
   -e OIDC_ISSUER_URI=https://idp.example.com/application/o/mcp/ \
   -e OIDC_AUDIENCE=https://mcp-proxy.example.com/mcp \
   ghcr.io/<owner>/<repo>:local
+```
+
+In Docker Compose, do not use `localhost` for `MCP_UPSTREAM_URL` unless the upstream MCP server runs in the same
+container. Use the Compose service name instead:
+
+```yaml
+services:
+  mcp-oauth2-proxy:
+    image: ghcr.io/<owner>/<repo>:latest
+    environment:
+      MCP_UPSTREAM_URL: http://dbhub:8080/mcp
+      APP_PUBLIC_URL: https://mcp-proxy.example.com
+      OIDC_ISSUER_URI: https://idp.example.com/application/o/mcp/
+    ports:
+      - "8080:8080"
+
+  dbhub:
+    image: your-dbhub-image
 ```
 
 ## GitHub Actions publishing

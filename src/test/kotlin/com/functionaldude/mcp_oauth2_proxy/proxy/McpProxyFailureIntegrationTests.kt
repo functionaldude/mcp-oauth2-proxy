@@ -1,5 +1,6 @@
 package com.functionaldude.mcp_oauth2_proxy.proxy
 
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -27,13 +28,20 @@ class McpProxyFailureIntegrationTests(
 
   @Test
   fun `upstream connection failure returns bad gateway`() {
-    mockMvc.perform(
+    val response = mockMvc.perform(
       post("/mcp")
         .contentType("application/json")
         .with(jwt())
         .content("""{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}""")
     )
       .andExpect(status().isBadGateway)
+      .andReturn()
+      .response
+
+    assertThat(response.getHeader("X-Request-Id")).isNotBlank()
+    assertThat(response.contentType).contains("application/json")
+    assertThat(response.contentAsString).contains(""""error":"upstream_""")
+    assertThat(response.contentAsString).contains(""""requestId":"""")
   }
 
   companion object {

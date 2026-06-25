@@ -15,3 +15,4 @@ app:
 mcp:
   proxy:
     upstream-url: ${MCP_UPSTREAM_URL:}
+    expose-error-details: ${MCP_PROXY_EXPOSE_ERROR_DETAILS:false}

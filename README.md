@@ -5,13 +5,13 @@ upstream MCP endpoint.
 
 ## Runtime configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `MCP_UPSTREAM_URL` | Required | Exact upstream MCP endpoint, for example `http://internal-server:8081/mcp`. |
-| `APP_PUBLIC_URL` | `http://localhost:8080` | Externally reachable proxy base URL used as fallback for audience defaults. May be either the site root or the `/mcp` endpoint. |
+| Variable | Default                                    | Purpose |
+| --- |--------------------------------------------| --- |
+| `MCP_UPSTREAM_URL` | Required                                   | Exact upstream MCP endpoint, for example `http://internal-server:8081/mcp`. |
+| `APP_PUBLIC_URL` | `http://localhost:8080`                    | Externally reachable proxy base URL used as fallback for audience defaults. May be either the site root or the `/mcp` endpoint. |
 | `OIDC_ISSUER_URI` | `http://localhost:9000/application/o/mcp/` | Issuer that signs ChatGPT access tokens. The JWKS URL is derived as `<issuer>/jwks/`. |
-| `OIDC_AUDIENCE` | `<APP_PUBLIC_URL>/mcp` | Required JWT audience. Override when the provider emits another audience. |
-| `OIDC_SCOPES` | `openid,profile,email` | Comma-separated scopes advertised in protected-resource metadata and bearer challenges. |
+| `OIDC_AUDIENCE` | `<APP_PUBLIC_URL>/mcp`                     | Required JWT audience. Override when the provider emits another audience. |
+| `OIDC_SCOPES` | `openid,profile,email,offline_access`                    | Comma-separated scopes advertised in protected-resource metadata and bearer challenges. |
 
 The proxy strips inbound `Authorization` and cookies before forwarding requests upstream. It does not parse or rewrite
 MCP JSON-RPC/SSE bodies.

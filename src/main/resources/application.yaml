@@ -10,7 +10,7 @@ app:
   auth:
     issuer-uri: ${OIDC_ISSUER_URI:http://localhost:9000/application/o/mcp/}
     audience: ${OIDC_AUDIENCE:}
-    scopes: ${OIDC_SCOPES:openid,profile,email}
+    scopes: ${OIDC_SCOPES:openid,profile,email,offline_access}
 
 mcp:
   proxy:

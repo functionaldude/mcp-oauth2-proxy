@@ -37,7 +37,7 @@ server remains private to the Compose network; only the OAuth2-protected proxy i
 |----------------------------------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
 | `MCP_UPSTREAM_URL`               | Required                                   | Exact upstream MCP endpoint, for example `http://internal-server:8081/mcp`.                                                     |
 | `APP_PUBLIC_URL`                 | `http://localhost:8080`                    | Externally reachable proxy base URL used as fallback for audience defaults. May be either the site root or the `/mcp` endpoint. |
-| `OIDC_ISSUER_URI`                | `http://localhost:9000/application/o/mcp/` | Issuer that signs ChatGPT access tokens. The JWKS URL is derived as `<issuer>/jwks/`.                                           |
+| `OIDC_ISSUER_URI`                | `http://localhost:9000/application/o/mcp/` | Issuer that signs MCP client access tokens. The JWKS URL is derived as `<issuer>/jwks/`.                                        |
 | `OIDC_AUDIENCE`                  | `<APP_PUBLIC_URL>/mcp`                     | Required JWT audience. Override when the provider emits another audience.                                                       |
 | `OIDC_SCOPES`                    | `openid,profile,email,offline_access`      | Comma-separated scopes advertised in protected-resource metadata and bearer challenges.                                         |
 | `MCP_PROXY_EXPOSE_ERROR_DETAILS` | `false`                                    | Includes exception details in proxy-generated 5xx JSON responses. Use only for local debugging.                                 |
@@ -59,10 +59,16 @@ For a confidential client:
 1. Create an OAuth2/OIDC application in your identity provider.
 2. Set the client/application type to confidential.
 3. Enable authorization code with PKCE.
-4. Add the ChatGPT connector callback URL as an allowed redirect URI.
-5. Copy the identity provider's client ID and client secret into the ChatGPT MCP connector's OAuth settings.
-6. Point the proxy at the same issuer with `OIDC_ISSUER_URI`.
-7. Set `OIDC_AUDIENCE` to the value your provider places in the JWT `aud` claim.
+4. Add your MCP client's OAuth callback URL as an allowed redirect URI.
+5. Copy the identity provider's client ID and client secret into the MCP client's OAuth settings.
+6. Configure the identity provider to issue access tokens for this proxy's MCP resource, usually
+   `<APP_PUBLIC_URL>/mcp`.
+7. Point the proxy at the same issuer with `OIDC_ISSUER_URI`.
+8. Set `OIDC_AUDIENCE` to the value your provider places in the JWT `aud` claim.
+
+Prefer fixing token shape in the identity provider instead of compensating in the proxy. The recommended setup is for
+tokens to include an `aud` claim that matches `OIDC_AUDIENCE` and, when the provider supports it, a `resource` claim or
+resource indicator that matches the proxy's MCP resource URL.
 
 Common audience values:
 

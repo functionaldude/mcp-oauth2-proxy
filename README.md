@@ -20,7 +20,7 @@ services:
       - "8080:8080"
     environment:
       MCP_UPSTREAM_URL: http://mcp-server:8080/mcp
-      APP_PUBLIC_URL: http://localhost:8080
+      APP_PUBLIC_URL: http://mcp.example.com:8080
       OIDC_ISSUER_URI: https://idp.example.com/application/o/mcp/
       OIDC_SCOPES: openid,profile,email,offline_access
 
@@ -28,7 +28,7 @@ services:
     image: your-mcp-server-image
 ```
 
-After startup, configure your MCP client to use the proxy URL, for example `http://localhost:8080/mcp`. The upstream MCP
+After startup, configure your MCP client to use the proxy URL, for example `http://mcp.example.com:8080/mcp`. The upstream MCP
 server remains private to the Compose network; only the OAuth2-protected proxy is exposed.
 
 ## Runtime configuration
